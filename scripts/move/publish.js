@@ -1,58 +1,66 @@
 require("dotenv").config();
 const fs = require("node:fs");
-const cli = require("@aptos-labs/ts-sdk/dist/common/cli/index.js");
-const aptosSDK = require("@aptos-labs/ts-sdk")
+const { execSync } = require("child_process");
+const path = require("path");
 
 async function publish() {
-
   if (!process.env.VITE_MODULE_PUBLISHER_ACCOUNT_ADDRESS) {
     throw new Error(
-      "VITE_MODULE_PUBLISHER_ACCOUNT_PRIVATE_KEY variable is not set, make sure you have set the publisher account address",
+      "VITE_MODULE_PUBLISHER_ACCOUNT_ADDRESS variable is not set"
     );
   }
 
   if (!process.env.VITE_MODULE_PUBLISHER_ACCOUNT_PRIVATE_KEY) {
     throw new Error(
-      "VITE_MODULE_PUBLISHER_ACCOUNT_PRIVATE_KEY variable is not set, make sure you have set the publisher account private key",
+      "VITE_MODULE_PUBLISHER_ACCOUNT_PRIVATE_KEY variable is not set"
     );
   }
 
-  const move = new cli.Move();
-
-  move
-    .createObjectAndPublishPackage({
-      packageDirectoryPath: "contract",
-      addressName: "message_board_addr",
-      namedAddresses: {
-        // Publish module to new object, but since we create the object on the fly, we fill in the publisher's account address here
-        message_board_addr: process.env.VITE_MODULE_PUBLISHER_ACCOUNT_ADDRESS,
-      },
-      extraArguments: [`--private-key=${process.env.VITE_MODULE_PUBLISHER_ACCOUNT_PRIVATE_KEY}`,`--url=${aptosSDK.NetworkToNodeAPI[process.env.VITE_APP_NETWORK]}`],
-    })
-    .then((response) => {
-      const filePath = ".env";
-      let envContent = "";
-
-      // Check .env file exists and read it
-      if (fs.existsSync(filePath)) {
-        envContent = fs.readFileSync(filePath, "utf8");
-      }
-
-      // Regular expression to match the VITE_MODULE_ADDRESS variable
-      const regex = /^VITE_MODULE_ADDRESS=.*$/m;
-      const newEntry = `VITE_MODULE_ADDRESS=${response.objectAddress}`;
-
-      // Check if VITE_MODULE_ADDRESS is already defined
-      if (envContent.match(regex)) {
-        // If the variable exists, replace it with the new value
-        envContent = envContent.replace(regex, newEntry);
-      } else {
-        // If the variable does not exist, append it
-        envContent += `\n${newEntry}`;
-      }
-
-      // Write the updated content back to the .env file
-      fs.writeFileSync(filePath, envContent, "utf8");
+  const contractPath = path.resolve(__dirname, "../../contract");
+  const envPath = path.resolve(__dirname, "../../.env");
+  
+  try {
+    // First compile the contract
+    console.log("Compiling contract...");
+    execSync("aptos move compile", { 
+      cwd: contractPath,
+      stdio: 'inherit'
     });
+
+    // Then publish
+    console.log("Publishing contract...");
+    execSync(
+      `aptos move publish --named-addresses sandeep_addr=${process.env.VITE_MODULE_PUBLISHER_ACCOUNT_ADDRESS} --private-key=${process.env.VITE_MODULE_PUBLISHER_ACCOUNT_PRIVATE_KEY} --url=https://fullnode.devnet.aptoslabs.com`,
+      { 
+        cwd: contractPath,
+        stdio: 'inherit'
+      }
+    );
+    
+    console.log("Contract published successfully!");
+
+    // Update the .env file with the module address
+    let envContent = "";
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, "utf8");
+    }
+
+    const regex = /^VITE_MODULE_ADDRESS=.*$/m;
+    const newEntry = `VITE_MODULE_ADDRESS=${process.env.VITE_MODULE_PUBLISHER_ACCOUNT_ADDRESS}`;
+
+    if (envContent.match(regex)) {
+      envContent = envContent.replace(regex, newEntry);
+    } else {
+      envContent += `\n${newEntry}`;
+    }
+
+    fs.writeFileSync(envPath, envContent, "utf8");
+    console.log("Updated .env file with module address");
+
+  } catch (error) {
+    console.error("Error publishing contract:", error);
+    process.exit(1);
+  }
 }
+
 publish();

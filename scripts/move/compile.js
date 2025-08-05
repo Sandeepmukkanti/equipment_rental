@@ -1,5 +1,5 @@
 require("dotenv").config();
-const cli = require("@aptos-labs/ts-sdk/dist/common/cli/index.js");
+const { Move } = require("@aptos-labs/aptos-cli");
 
 async function compile() {
 
@@ -9,13 +9,13 @@ async function compile() {
     );
   }
 
-  const move = new cli.Move();
+  const move = new Move();
 
   await move.compile({
-    packageDirectoryPath: "contract",
+    packageDirectoryPath: "../../contract",
     namedAddresses: {
       // Compile module with account address
-      message_board_addr: process.env.VITE_MODULE_PUBLISHER_ACCOUNT_ADDRESS,
+      sandeep_addr: process.env.VITE_MODULE_PUBLISHER_ACCOUNT_ADDRESS,
     },
   });
 }
