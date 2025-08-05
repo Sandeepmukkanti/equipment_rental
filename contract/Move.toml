@@ -1,0 +1,13 @@
+[package]
+name = "equipment_rental"
+version = "0.0.1"
+upgrade_policy = "compatible"
+
+
+[addresses]
+sandeep_addr = "0xdab1767af75d7a3b42fc13796978393eb47aba1f56b943cb07585f0a24a249e8"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-framework.git", rev = "mainnet", subdir = "aptos-framework" }
+
+[dev-dependencies]
